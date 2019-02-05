@@ -317,74 +317,42 @@ int restrict_to_range(int i, int from, int to, const char* name) {
 }
 
 //-----------------------------------------------------------------------------
-// [[Rcpp::export]]
-Rcpp::NumericVector GetSwmmResultPart(
-  int iType, int iIndex, int vIndex, int firstPeriod, int lastPeriod
-)
+int warn_if_not_equal_and_set_to_zero(int iIndex, int expected)
 {
-  off_t offset;
-  int n = SWMM_Nperiods;
-  
-  firstPeriod = restrict_to_range(firstPeriod, 1, n, "firstPeriod");
-  lastPeriod = restrict_to_range(lastPeriod, firstPeriod, n, "lastPeriod");
-  
-  std::vector<float> resultvec(lastPeriod - firstPeriod + 1);
-
-  if (iType != SUBCATCH && iType != NODE && iType != LINK && iType != SYS) {
-    printf("Unknown iType: %d\n", iType);
-    return wrap(resultvec);
-  }
-  
-  if (iType == SYS) {
-    if (iIndex != 777) {
-      printf(
-        "iIndex is not 777 as expected but: %d. Anyway using iIndex = 0.",
-        iIndex
-      );
-    }
-    iIndex = 0;
-  }
-  
-  // --- compute offset into output file
-  offset = (off_t) OutputStartPos + RECORDSIZE * (
-    2 + n_records_skip[iType] + iIndex * n_variables[iType] + vIndex
-  );
-  
-  if (! file_seek(offset, SEEK_SET)) {
-    return wrap(resultvec);
-  }
-  
-  for (int i = firstPeriod; i <= lastPeriod; ++i) {
-
-    // --- re-position the file and read the result
-    if (! file_seek(offset + (off_t) (i - 1) * BytesPerPeriod, SEEK_SET)) {
-      return wrap(resultvec);
-    }
+  if (iIndex != expected) {
     
-    read_record(&resultvec[i - firstPeriod], "resultvec");
+    printf(
+      "iIndex is not %d as expected but: %d. Anyway using iIndex = 0.",
+      expected, iIndex
+    );
   }
   
-  return wrap(resultvec);
-}
-
+  return 0;
+}  
+  
 //-----------------------------------------------------------------------------
-// [[Rcpp::export]]
-Rcpp::NumericVector GetSwmmResultPart2(
-    int iType, int iIndex, 
-    Rcpp::IntegerVector varIndices,
-    int firstPeriod, int lastPeriod
+Rcpp::NumericVector GetSwmmResultPart_(
+  int iType, int iIndex, int vIndex, Rcpp::IntegerVector varIndices, 
+  int firstPeriod, int lastPeriod
 )
 {
   off_t offset;
+  size_t size;
+  int nVars, n_records_to_read;
   int n = SWMM_Nperiods;
 
   firstPeriod = restrict_to_range(firstPeriod, 1, n, "firstPeriod");
   lastPeriod = restrict_to_range(lastPeriod, firstPeriod, n, "lastPeriod");
 
   // Count number of variables
-  int nVars = varIndices.size();
-
-  printf("Number of variables to read: %d\n", nVars);
+  if (vIndex == -1) {
+    nVars = varIndices.size();
+    n_records_to_read = MAX_VAR_VALUES;
+  } 
+  else {
+    nVars = 1;
+    n_records_to_read = 1;
+  }
   
   std::vector<float> resultvec(nVars * (lastPeriod - firstPeriod + 1));
 
@@ -392,51 +360,81 @@ Rcpp::NumericVector GetSwmmResultPart2(
     printf("Unknown iType: %d\n", iType);
     return wrap(resultvec);
   }
-  
+
   if (iType == SYS) {
-    if (iIndex != 777) {
-      printf(
-        "iIndex is not 777 as expected but: %d. Anyway using iIndex = 0.",
-        iIndex
-      );
-    }
-    iIndex = 0;
-  }
-  
-  // --- compute offset into output file
-  offset = (off_t) OutputStartPos + RECORDSIZE * (
-    2 + n_records_skip[iType] + iIndex * n_variables[iType]
-  );
-  
-  if (! file_seek(offset, SEEK_SET)) {
-    return wrap(resultvec);
+    iIndex = warn_if_not_equal_and_set_to_zero(iIndex, 777);
   }
 
+  // --- compute offset into output file
+  offset = (off_t) OutputStartPos + RECORDSIZE * (
+    2 + n_records_skip[iType] + iIndex * n_variables[iType] + 
+      (vIndex == -1 ? 0 : vIndex)
+  );
+
+  /*if (! file_seek(offset, SEEK_SET)) {
+    return wrap(resultvec);
+  }*/
+
   for (int i = firstPeriod; i <= lastPeriod; ++i) {
-    
+
     // --- re-position the file and read the result
     if (! file_seek(offset + (off_t) (i - 1) * BytesPerPeriod, SEEK_SET)) {
       return wrap(resultvec);
     }
-
-    size_t size = fread(var_values, RECORDSIZE, MAX_VAR_VALUES, Fout);
     
-    if (size != MAX_VAR_VALUES) {
-      
-      printf(
-        "Could not read %d values from the output file.\n", MAX_VAR_VALUES
+    if (vIndex == -1) {
+      // Read all variables into var_values first
+      size = fread(var_values, RECORDSIZE, n_records_to_read, Fout);
+    } else {
+      // Read directly into result vector
+      size = fread(
+        &resultvec[i - firstPeriod], RECORDSIZE, n_records_to_read, Fout
       );
-      
+    }
+    
+    if (size != n_records_to_read) {
+      printf(
+        "Could not read %d values from the output file.\n", n_records_to_read
+      );
       return wrap(resultvec);
     }
-
-    // Copy values into result vector
-    for (int j = 0; j < nVars; j++) {
-      resultvec[nVars * (i - firstPeriod) + j] = var_values[varIndices[j]];
+    
+    // If no vIndex was given, copy values into result vector
+    if (vIndex == -1) {
+      for (int j = 0; j < nVars; j++) {
+        resultvec[nVars * (i - firstPeriod) + j] = var_values[varIndices[j]];
+      }
     }
   }
-  
+
   return wrap(resultvec);
+}
+
+//-----------------------------------------------------------------------------
+// [[Rcpp::export]]
+Rcpp::NumericVector GetSwmmResultPart(
+  int iType, int iIndex, int vIndex, 
+  int firstPeriod, int lastPeriod
+)
+{
+  Rcpp::IntegerVector dummy;
+  
+  return GetSwmmResultPart_(
+    iType, iIndex, vIndex, dummy, firstPeriod, lastPeriod
+  );
+}
+
+//-----------------------------------------------------------------------------
+// [[Rcpp::export]]
+Rcpp::NumericVector GetSwmmResultPart2(
+  int iType, int iIndex, Rcpp::IntegerVector varIndices, 
+  int firstPeriod, int lastPeriod
+)
+{
+  // Call helper function with vIndex = -1
+  return GetSwmmResultPart_(
+    iType, iIndex, -1, varIndices, firstPeriod, lastPeriod
+  );
 }
 
 //-----------------------------------------------------------------------------
