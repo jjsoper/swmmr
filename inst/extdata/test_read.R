@@ -12,7 +12,7 @@ swmmr::run_swmm(inp_file, out = out_file, exec = exec)
 
 file.size(out_file) / (1024^3)
 
-result <- swmmr:::OpenSwmmOutFile(out_file)
+elements <- swmmr:::OpenSwmmOutFile(out_file)
 swmmr:::GetSwmmTimes()
 swmmr:::CloseSwmmOutFile()
 
@@ -21,14 +21,15 @@ swmmr:::CloseSwmmOutFile()
 #file = out_file; byObject = FALSE; multiColumn = TRUE
 
 results <- list()
-for (method in 1:3) {
+for (method in 2:3) {
   print(system.time(results[[method]] <- swmmr::read_out(
     file = out_file, 
     byObject = TRUE, multiColumn = TRUE,
     iType = 0, 
-    #object_name = c("SV8", "SV27", "SG20", "SG3"),
-    object_name = c("1", "3", "4"), 
-    firstPeriod = 1, lastPeriod = 2, 
+    object_name = elements$subcatchments$names[1:10],
+    #object_name = c("1", "3", "4"), 
+    #object_name = c("9", "10", "13"), 
+    firstPeriod = 1, lastPeriod = 500000, 
     vIndex = c(0:6), method = method
   )))
 }

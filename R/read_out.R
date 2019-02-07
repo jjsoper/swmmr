@@ -219,10 +219,10 @@ read_out <- function(
       
       message("Creating xts-objects... ")
       
-      rows <- seq_along(order_by)
+      rows <- seq(0, by = length(iIndex$iIndex), length.out = length(order_by))
       
       lapply(seq_along(iIndex$iIndex), function(i) {
-        xts::xts(order.by = order_by, data_matrix[rows + i - 1, ])
+        xts::xts(order.by = order_by, data_matrix[rows + i, ])
       })
     }
     
