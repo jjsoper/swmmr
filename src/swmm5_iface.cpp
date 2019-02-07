@@ -1,6 +1,7 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+#define DEBUG 0
 #define ERROR_FILE_OPEN 1
 #define ERROR_FILE_SEEK 2
 #define ERROR_FILE_TELL 3
@@ -41,9 +42,12 @@ static FILE*  Fout;                    // file handle
 static int    OutputStartPos;          // file position where results start
 static double BytesPerPeriod;          // bytes used for results in each period
 
-// Variable values of one object (SUBCATCH, NODE, LINK, SYS) 
+// Variable values of all objects of one type (SUBCATCH, NODE, LINK, SYS) 
 // at one point in time
-static float var_values[MAX_VAR_VALUES];
+//static float var_values[MAX_VAR_VALUES];
+static float* var_values = NULL;
+static int max_n_variables = 0;
+static int max_n_objects = 0;
 
 //-----------------------------------------------------------------------------
 int open_output_file(const char* outFile)
@@ -77,15 +81,20 @@ int file_seek(off_t offset, int whence)
 }
 
 //-----------------------------------------------------------------------------
-int read_bytes(void* pointer, const char* name, int n_bytes)
+int read_bytes(void* pointer, const char* name, int n_bytes, int n_records)
 {
   //printf("Reading %s ... ", name);
   
-  size_t size = fread(pointer, n_bytes, 1, Fout);
+  size_t n_read = fread(pointer, n_bytes, n_records, Fout);
 
-  if (size != 1) {
+  if (n_read != n_records) {
     
-    printf("Reading %s failed.\n", name);
+    if (n_records == 1) {
+      printf("Reading %s failed.\n", name);
+    } 
+    else {
+      printf("Reading %d %s failed.\n", n_records, name);
+    }
     
     return 0;
   }
@@ -98,13 +107,13 @@ int read_bytes(void* pointer, const char* name, int n_bytes)
 //-----------------------------------------------------------------------------
 int read_record(void* pointer, const char* name)
 {
-  return read_bytes(pointer, name, RECORDSIZE);
+  return read_bytes(pointer, name, RECORDSIZE, 1);
 }
 
 //-----------------------------------------------------------------------------
 int read_record_double(void* pointer, const char* name)
 {
-  return read_bytes(pointer, name, sizeof(double));
+  return read_bytes(pointer, name, sizeof(double), 1);
 }  
 
 //-----------------------------------------------------------------------------
@@ -140,7 +149,10 @@ int read_names(std::vector<std::string> &names, const char* type_name)
     names[i] = fgets(buffer, n_chars + 1, Fout);
   }
   
-  printf("%d %ss read.\n", names.size(), type_name);
+  if (DEBUG) {
+    
+    printf("%d %ss read.\n", names.size(), type_name);
+  }
   
   return 1;
 }
@@ -177,11 +189,14 @@ List OpenSwmmOutFile(const char* outFile)
   read_record(&errCode, "errCode");
   read_record(&magic2, "magic2");
 
-  printf("InputStartPos: %d\n", InputStartPos);   // in SWMM: InputStartPos
-  printf("OutputStartPos: %d\n", OutputStartPos); // in SWMM: OutputStartPos
-  printf("SWMM_Nperiods: %d\n", SWMM_Nperiods);
-  printf("errCode: %d\n", errCode);
-  printf("magic2: %d\n", magic2);
+  if (DEBUG) {
+    
+    printf("InputStartPos: %d\n", InputStartPos);   // in SWMM: InputStartPos
+    printf("OutputStartPos: %d\n", OutputStartPos); // in SWMM: OutputStartPos
+    printf("SWMM_Nperiods: %d\n", SWMM_Nperiods);
+    printf("errCode: %d\n", errCode);
+    printf("magic2: %d\n", magic2);
+  }
   
   // --- read magic number from beginning of file
   if (! file_seek(0, SEEK_SET)) {
@@ -258,13 +273,16 @@ List OpenSwmmOutFile(const char* outFile)
   read_record_double(&SWMM_StartDate, "SWMM_StartDate");
   read_record(&SWMM_ReportStep, "SWMM_ReportStep");
 
-  printf("n_variables[SUBCATCH]: %d\n", n_variables[SUBCATCH]);
-  printf("n_variables[NODE]: %d\n", n_variables[NODE]);
-  printf("n_variables[LINK]: %d\n", n_variables[LINK]);
-  printf("n_variables[SYS]: %d\n", n_variables[SYS]);
-  
-  printf("SWMM_StartDate: %f\n", SWMM_StartDate);
-  printf("SWMM_ReportStep: %d\n", SWMM_ReportStep);
+  if (DEBUG) {
+    
+    printf("n_variables[SUBCATCH]: %d\n", n_variables[SUBCATCH]);
+    printf("n_variables[NODE]: %d\n", n_variables[NODE]);
+    printf("n_variables[LINK]: %d\n", n_variables[LINK]);
+    printf("n_variables[SYS]: %d\n", n_variables[SYS]);
+    
+    printf("SWMM_StartDate: %f\n", SWMM_StartDate);
+    printf("SWMM_ReportStep: %d\n", SWMM_ReportStep);
+  }
 
   // calculate helper variables that will be used to determine the position
   // of result data in the output file 
@@ -273,6 +291,8 @@ List OpenSwmmOutFile(const char* outFile)
   // Set the number of system "objects" to 1, just to be consistent and to be 
   // able to let the following loop go from 0 (SUBCATCH) to 3 (SYS)
   n_objects[SYS] = 1;
+  max_n_variables = 0;
+  max_n_objects = 0;
   
   for (int i = SUBCATCH; i <= SYS; i++) {
     
@@ -285,12 +305,25 @@ List OpenSwmmOutFile(const char* outFile)
     else {
       n_records_skip[i] = 0;
     }
+    
+    // update maximum number of variables per category
+    if (n_variables[i] > max_n_variables) {
+      max_n_variables = n_variables[i];
+    }
+    
+    // update maximum number of objects per category
+    if (n_objects[i] > max_n_objects) {
+      max_n_objects = n_objects[i];
+    }
   }
   
   // --- compute number of bytes of results values used per time period
   // date value (a double)
   BytesPerPeriod = RECORDSIZE * (2 + n_record_sum);
- 
+
+  // Allocate memory for all variables of all objects of one type
+  var_values = (float*) calloc(max_n_objects * max_n_variables, sizeof(float));
+
   // --- return with file left open
   return List::create(
     _["meta"] = List::create(_["version"] = SWMM_version),
@@ -329,111 +362,188 @@ int warn_if_not_equal_and_set_to_zero(int iIndex, int expected)
   
   return 0;
 }  
-  
+
+// ----------------------------------------------------------------------------
+void print_integer_vector(Rcpp::IntegerVector v, const char* name)
+{
+  printf("%s [0:%d]:", name, v.size() - 1);
+  for (int i = 0; i < v.size(); i++) {
+    printf(" %d", v[i]);
+  }
+  printf("\n");
+}
+
 //-----------------------------------------------------------------------------
+// [[Rcpp::export]]
 Rcpp::NumericVector GetSwmmResultPart_(
-  int iType, int iIndex, int vIndex, Rcpp::IntegerVector varIndices, 
-  int firstPeriod, int lastPeriod
+  int iType, 
+  Rcpp::IntegerVector objIndices, 
+  Rcpp::IntegerVector varIndices, 
+  int firstPeriod, 
+  int lastPeriod
 )
 {
-  off_t offset;
-  size_t size;
-  int nVars, n_records_to_read;
+  int n_to_read = -1;
+  int success = 0;
+  int n_vars = varIndices.size();
+  int n_objs = objIndices.size();
   int n = SWMM_Nperiods;
-
+  
   firstPeriod = restrict_to_range(firstPeriod, 1, n, "firstPeriod");
   lastPeriod = restrict_to_range(lastPeriod, firstPeriod, n, "lastPeriod");
 
-  // Count number of variables
-  if (vIndex == -1) {
-    nVars = varIndices.size();
-    n_records_to_read = MAX_VAR_VALUES;
-  } 
-  else {
-    nVars = 1;
-    n_records_to_read = 1;
-  }
+  // Count number of variables, number of objects (e.g. nodes, links) 
+  // and records
+  int n_periods = lastPeriod - firstPeriod + 1;
   
-  std::vector<float> resultvec(nVars * (lastPeriod - firstPeriod + 1));
+  // Do we read only a single value each time?
+  int single_value = (n_objs == 1 && n_vars == 1);
+
+  // Initialise result vector with a special number that indicates errors
+  std::vector<float> result(n_vars * n_objs * n_periods, -9999.9999);
+  int result_index = 0;
 
   if (iType != SUBCATCH && iType != NODE && iType != LINK && iType != SYS) {
+    
     printf("Unknown iType: %d\n", iType);
-    return wrap(resultvec);
+    return wrap(result);
   }
 
   if (iType == SYS) {
-    iIndex = warn_if_not_equal_and_set_to_zero(iIndex, 777);
+    
+    objIndices[0] = warn_if_not_equal_and_set_to_zero(objIndices[0], 777);
   }
 
   // --- compute offset into output file
-  offset = (off_t) OutputStartPos + RECORDSIZE * (
-    2 + n_records_skip[iType] + iIndex * n_variables[iType] + 
-      (vIndex == -1 ? 0 : vIndex)
+  off_t offset = (off_t) OutputStartPos + RECORDSIZE * (
+    2 + 
+      n_records_skip[iType] + 
+      objIndices[0] * n_variables[iType] + 
+      (single_value ? varIndices[0] : 0)
   );
 
-  /*if (! file_seek(offset, SEEK_SET)) {
-    return wrap(resultvec);
-  }*/
-
-  for (int i = firstPeriod; i <= lastPeriod; ++i) {
-
-    // --- re-position the file and read the result
-    if (! file_seek(offset + (off_t) (i - 1) * BytesPerPeriod, SEEK_SET)) {
-      return wrap(resultvec);
-    }
+  // Now that the object indices have been used to determine the offset, we
+  // modify them so that the first index is 0
+  for (int i = 0; i < n_objs; i++) {
     
-    if (vIndex == -1) {
-      // Read all variables into var_values first
-      size = fread(var_values, RECORDSIZE, n_records_to_read, Fout);
-    } else {
-      // Read directly into result vector
-      size = fread(
-        &resultvec[i - firstPeriod], RECORDSIZE, n_records_to_read, Fout
-      );
-    }
+    objIndices[i] = objIndices[i] - objIndices[0];
+  }
+
+  if (DEBUG) {
     
-    if (size != n_records_to_read) {
+    print_integer_vector(objIndices, "objIndices after reindexing");
+    printf("single_value: %s\n", single_value ? "yes" : "no");
+  }
+  
+  // determine how many floating point numbers to read
+  if (! single_value) {
+    
+    //n_to_read = (objIndices[n_objs] - objIndices[0]) * n_variables[iType] +
+    n_to_read = objIndices[n_objs - 1] * n_variables[iType] +
+      varIndices[n_vars - 1] + 1;
+
+    if (DEBUG) {
+      
       printf(
-        "Could not read %d values from the output file.\n", n_records_to_read
+        "n_to_read = objIndices[%d] * n_variables[%d] + varIndices[%d] + 1\n",
+        n_objs-1, iType, n_vars-1
       );
-      return wrap(resultvec);
+      printf(
+        "          = %d * %d + %d + 1 = %d\n", 
+        objIndices[n_objs-1], n_variables[iType], varIndices[n_vars-1], n_to_read
+      );
+    }
+  }
+  
+  for (int i = firstPeriod; i <= lastPeriod; i++) {
+
+    // --- re-position the file pointer and read the result
+    if (! file_seek(offset + (off_t) (i - 1) * BytesPerPeriod, SEEK_SET)) {
+      
+      return wrap(result);
+    }
+
+    if (single_value) {
+      
+      // Read directly into result vector
+      success = read_bytes(&result[i - firstPeriod], "values", RECORDSIZE, 1);
+    }
+    else {
+      
+      // Read a block of values into var_values first
+      success = read_bytes(var_values, "values", RECORDSIZE, n_to_read);
+    }
+
+    if (! success) {
+      
+      printf("Error reading result values from the output file.\n");
+      return wrap(result);
     }
     
-    // If no vIndex was given, copy values into result vector
-    if (vIndex == -1) {
-      for (int j = 0; j < nVars; j++) {
-        resultvec[nVars * (i - firstPeriod) + j] = var_values[varIndices[j]];
+    // If more than one value was read, copy the values into the result vector
+    if (! single_value) {
+      
+      for (int obj = 0; obj < n_objs; obj++) {
+        
+        for (int var = 0; var < n_vars; var++) {
+          
+          int from = objIndices[obj] * n_variables[iType] + varIndices[var];
+
+          if (from >= max_n_objects * max_n_variables) {
+            printf("Invalid from index: %d!\n", from);
+            return wrap(result);
+          } else {
+            //printf("obj/var/from: %d/%d/%d\n", obj, var, from);
+          }
+          
+          //printf("result_index: %d/%d\n", result_index, n_objects * n_vars * n_periods - 1);
+          
+          if (result_index < n_objs * n_vars * n_periods) {
+            result[result_index++] = var_values[from];
+          }
+          else {
+            printf("Invalid result_index: %d!\n", result_index);
+            return wrap(result);
+          }
+        }
       }
     }
   }
 
-  return wrap(resultvec);
+  return wrap(result);
 }
 
 //-----------------------------------------------------------------------------
 // [[Rcpp::export]]
 Rcpp::NumericVector GetSwmmResultPart(
-  int iType, int iIndex, int vIndex, 
-  int firstPeriod, int lastPeriod
+  int iType, int objIndex, int varIndex, int firstPeriod, int lastPeriod
 )
 {
-  Rcpp::IntegerVector dummy;
+  Rcpp::IntegerVector objIndices(1, objIndex);
+  Rcpp::IntegerVector varIndices(1, varIndex);
+  
+  //print_integer_vector(objIndices, "objIndices");
+  //print_integer_vector(varIndices, "varIndices");
   
   return GetSwmmResultPart_(
-    iType, iIndex, vIndex, dummy, firstPeriod, lastPeriod
+    iType, objIndices, varIndices, firstPeriod, lastPeriod
   );
 }
 
 //-----------------------------------------------------------------------------
 // [[Rcpp::export]]
 Rcpp::NumericVector GetSwmmResultPart2(
-  int iType, int iIndex, Rcpp::IntegerVector varIndices, 
+  int iType, int objIndex, Rcpp::IntegerVector varIndices, 
   int firstPeriod, int lastPeriod
 )
 {
-  // Call helper function with vIndex = -1
+  Rcpp::IntegerVector objIndices(1, objIndex);
+
+  //print_integer_vector(objIndices, "objIndices");
+  //print_integer_vector(varIndices, "varIndices");
+  
   return GetSwmmResultPart_(
-    iType, iIndex, -1, varIndices, firstPeriod, lastPeriod
+    iType, objIndices, varIndices, firstPeriod, lastPeriod
   );
 }
 
@@ -464,6 +574,12 @@ Rcpp::NumericVector GetSwmmTimes()
 // [[Rcpp::export]]
 int CloseSwmmOutFile()
 {
+  // Free memory for all variables of all objects of one type
+  if (var_values != NULL) {
+    free(var_values);
+    var_values = NULL;
+  }
+  
   if (Fout != NULL) {
     fclose(Fout);
     Fout = NULL;

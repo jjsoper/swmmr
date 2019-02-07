@@ -172,32 +172,60 @@ read_out <- function(
   # provide timestamps
   order_by <- time[firstPeriod:lastPeriod]
 
-  if (method == 2) {
+  if (method != 1) {
     
     if (! multiColumn || ! byObject) {
       
       stop(
-        "method = 2 is only implemented for multiColumn = TRUE and ", 
+        "methods 2 and 3 are only implemented for multiColumn = TRUE and ", 
         "byObject = TRUE", call. = FALSE
       )
     }
     
-    result_list <- lapply(iIndex$iIndex, function(iIndex) {
+    result_list <- if (method == 2) {
       
-      xts::xts(order.by = order_by, matrix(
-        data = GetSwmmResultPart2(
-          iType = iType, 
-          iIndex = iIndex, 
-          varIndices = vIndex$vIndex,
+      lapply(iIndex$iIndex, function(iIndex) {
+        
+        xts::xts(order.by = order_by, matrix(
+          data = GetSwmmResultPart2(
+            iType = iType, 
+            objIndex = iIndex, 
+            varIndices = vIndex$vIndex,
+            firstPeriod = firstPeriod, 
+            lastPeriod = lastPeriod
+          ),
+          ncol = length(vIndex$vIndex), 
+          byrow = TRUE,
+          dimnames = list(NULL, vIndex$names)
+        ))
+      })
+      
+    } else if (method == 3) {
+      
+      message("Reading data from file ... ")
+      
+      data_matrix <- matrix(
+        data = GetSwmmResultPart_(
+          iType, 
+          objIndices = iIndex$iIndex, 
+          varIndices = vIndex$vIndex, 
           firstPeriod = firstPeriod, 
           lastPeriod = lastPeriod
         ),
         ncol = length(vIndex$vIndex), 
-        byrow = TRUE,
+        byrow = TRUE, 
         dimnames = list(NULL, vIndex$names)
-      ))
-    })
-
+      )
+      
+      message("Creating xts-objects... ")
+      
+      rows <- seq_along(order_by)
+      
+      lapply(seq_along(iIndex$iIndex), function(i) {
+        xts::xts(order.by = order_by, data_matrix[rows + i - 1, ])
+      })
+    }
+    
     return(stats::setNames(result_list, iIndex$names))
   }
   
@@ -213,8 +241,8 @@ read_out <- function(
     
     series <- GetSwmmResultPart(
       iType = iType, 
-      iIndex = arg_combis$iIndex[i], 
-      vIndex = arg_combis$vIndex[i],
+      objIndex = arg_combis$iIndex[i], 
+      varIndex = arg_combis$vIndex[i],
       firstPeriod = firstPeriod, 
       lastPeriod = lastPeriod
     )

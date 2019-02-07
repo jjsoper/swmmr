@@ -16,33 +16,48 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// GetSwmmResultPart
-Rcpp::NumericVector GetSwmmResultPart(int iType, int iIndex, int vIndex, int firstPeriod, int lastPeriod);
-RcppExport SEXP _swmmr_GetSwmmResultPart(SEXP iTypeSEXP, SEXP iIndexSEXP, SEXP vIndexSEXP, SEXP firstPeriodSEXP, SEXP lastPeriodSEXP) {
+// GetSwmmResultPart_
+Rcpp::NumericVector GetSwmmResultPart_(int iType, Rcpp::IntegerVector objIndices, Rcpp::IntegerVector varIndices, int firstPeriod, int lastPeriod);
+RcppExport SEXP _swmmr_GetSwmmResultPart_(SEXP iTypeSEXP, SEXP objIndicesSEXP, SEXP varIndicesSEXP, SEXP firstPeriodSEXP, SEXP lastPeriodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type iType(iTypeSEXP);
-    Rcpp::traits::input_parameter< int >::type iIndex(iIndexSEXP);
-    Rcpp::traits::input_parameter< int >::type vIndex(vIndexSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type objIndices(objIndicesSEXP);
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type varIndices(varIndicesSEXP);
     Rcpp::traits::input_parameter< int >::type firstPeriod(firstPeriodSEXP);
     Rcpp::traits::input_parameter< int >::type lastPeriod(lastPeriodSEXP);
-    rcpp_result_gen = Rcpp::wrap(GetSwmmResultPart(iType, iIndex, vIndex, firstPeriod, lastPeriod));
+    rcpp_result_gen = Rcpp::wrap(GetSwmmResultPart_(iType, objIndices, varIndices, firstPeriod, lastPeriod));
+    return rcpp_result_gen;
+END_RCPP
+}
+// GetSwmmResultPart
+Rcpp::NumericVector GetSwmmResultPart(int iType, int objIndex, int varIndex, int firstPeriod, int lastPeriod);
+RcppExport SEXP _swmmr_GetSwmmResultPart(SEXP iTypeSEXP, SEXP objIndexSEXP, SEXP varIndexSEXP, SEXP firstPeriodSEXP, SEXP lastPeriodSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type iType(iTypeSEXP);
+    Rcpp::traits::input_parameter< int >::type objIndex(objIndexSEXP);
+    Rcpp::traits::input_parameter< int >::type varIndex(varIndexSEXP);
+    Rcpp::traits::input_parameter< int >::type firstPeriod(firstPeriodSEXP);
+    Rcpp::traits::input_parameter< int >::type lastPeriod(lastPeriodSEXP);
+    rcpp_result_gen = Rcpp::wrap(GetSwmmResultPart(iType, objIndex, varIndex, firstPeriod, lastPeriod));
     return rcpp_result_gen;
 END_RCPP
 }
 // GetSwmmResultPart2
-Rcpp::NumericVector GetSwmmResultPart2(int iType, int iIndex, Rcpp::IntegerVector varIndices, int firstPeriod, int lastPeriod);
-RcppExport SEXP _swmmr_GetSwmmResultPart2(SEXP iTypeSEXP, SEXP iIndexSEXP, SEXP varIndicesSEXP, SEXP firstPeriodSEXP, SEXP lastPeriodSEXP) {
+Rcpp::NumericVector GetSwmmResultPart2(int iType, int objIndex, Rcpp::IntegerVector varIndices, int firstPeriod, int lastPeriod);
+RcppExport SEXP _swmmr_GetSwmmResultPart2(SEXP iTypeSEXP, SEXP objIndexSEXP, SEXP varIndicesSEXP, SEXP firstPeriodSEXP, SEXP lastPeriodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type iType(iTypeSEXP);
-    Rcpp::traits::input_parameter< int >::type iIndex(iIndexSEXP);
+    Rcpp::traits::input_parameter< int >::type objIndex(objIndexSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type varIndices(varIndicesSEXP);
     Rcpp::traits::input_parameter< int >::type firstPeriod(firstPeriodSEXP);
     Rcpp::traits::input_parameter< int >::type lastPeriod(lastPeriodSEXP);
-    rcpp_result_gen = Rcpp::wrap(GetSwmmResultPart2(iType, iIndex, varIndices, firstPeriod, lastPeriod));
+    rcpp_result_gen = Rcpp::wrap(GetSwmmResultPart2(iType, objIndex, varIndices, firstPeriod, lastPeriod));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -82,6 +97,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_swmmr_OpenSwmmOutFile", (DL_FUNC) &_swmmr_OpenSwmmOutFile, 1},
+    {"_swmmr_GetSwmmResultPart_", (DL_FUNC) &_swmmr_GetSwmmResultPart_, 5},
     {"_swmmr_GetSwmmResultPart", (DL_FUNC) &_swmmr_GetSwmmResultPart, 5},
     {"_swmmr_GetSwmmResultPart2", (DL_FUNC) &_swmmr_GetSwmmResultPart2, 5},
     {"_swmmr_GetSwmmResult", (DL_FUNC) &_swmmr_GetSwmmResult, 3},

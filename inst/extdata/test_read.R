@@ -19,24 +19,25 @@ swmmr:::CloseSwmmOutFile()
 #kwb.utils::assignPackageObjects("swmmr")
 #kwb.utils::assignArgumentDefaults(swmmr::read_out)
 #file = out_file; byObject = FALSE; multiColumn = TRUE
+
 results <- list()
-for (method in 1:2) {
+for (method in 1:3) {
   print(system.time(results[[method]] <- swmmr::read_out(
     file = out_file, 
     byObject = TRUE, multiColumn = TRUE,
     iType = 0, 
-    #object_name = c("SV8", "SV27"),
-    object_name = c("1", "2", "3"), 
-    #firstPeriod = 1, lastPeriod = 33, 
-    vIndex = 0:5, method = method
+    #object_name = c("SV8", "SV27", "SG20", "SG3"),
+    object_name = c("1", "3", "4"), 
+    firstPeriod = 1, lastPeriod = 2, 
+    vIndex = c(0:6), method = method
   )))
 }
 
 kwb.utils::allAreIdentical(results)
 
 i <- 1
-tail(results[[1]][[i]])
-tail(results[[2]][[i]])
+results[[1]]
+results[[2]]
 #, firstPeriod = 1, lastPeriod = 100)
 
 #swmmr:::OpenSwmmOutFile(out_file)

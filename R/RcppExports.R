@@ -5,12 +5,16 @@ OpenSwmmOutFile <- function(outFile) {
     .Call('_swmmr_OpenSwmmOutFile', PACKAGE = 'swmmr', outFile)
 }
 
-GetSwmmResultPart <- function(iType, iIndex, vIndex, firstPeriod, lastPeriod) {
-    .Call('_swmmr_GetSwmmResultPart', PACKAGE = 'swmmr', iType, iIndex, vIndex, firstPeriod, lastPeriod)
+GetSwmmResultPart_ <- function(iType, objIndices, varIndices, firstPeriod, lastPeriod) {
+    .Call('_swmmr_GetSwmmResultPart_', PACKAGE = 'swmmr', iType, objIndices, varIndices, firstPeriod, lastPeriod)
 }
 
-GetSwmmResultPart2 <- function(iType, iIndex, varIndices, firstPeriod, lastPeriod) {
-    .Call('_swmmr_GetSwmmResultPart2', PACKAGE = 'swmmr', iType, iIndex, varIndices, firstPeriod, lastPeriod)
+GetSwmmResultPart <- function(iType, objIndex, varIndex, firstPeriod, lastPeriod) {
+    .Call('_swmmr_GetSwmmResultPart', PACKAGE = 'swmmr', iType, objIndex, varIndex, firstPeriod, lastPeriod)
+}
+
+GetSwmmResultPart2 <- function(iType, objIndex, varIndices, firstPeriod, lastPeriod) {
+    .Call('_swmmr_GetSwmmResultPart2', PACKAGE = 'swmmr', iType, objIndex, varIndices, firstPeriod, lastPeriod)
 }
 
 GetSwmmResult <- function(iType, iIndex, vIndex) {
