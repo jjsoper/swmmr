@@ -3,7 +3,13 @@ if (FALSE)
 {
   out_file <- "/home/hauke/Downloads/SWMM/result.out"
 
-  read_out_metadata(out_file)
+  metadata <- read_out_metadata(out_file)
+  
+  metadata$header$start_datetime <- as.POSIXct(
+    metadata$header$start_datetime * 86400, origin = "1899-12-30", tz = "GMT"
+  )
+  
+  metadata
 }
 
 # field_config -----------------------------------------------------------------
@@ -149,6 +155,12 @@ read_out_metadata <- function(out_file)
     n_polluts = object_counts$polluts
   )
 
+  max_sys_results <- read_int(con)
+  sys_result_ids <- read_int(con, max_sys_results)
+
+  header$start_datetime <- read_num(con, 1, size = 8)
+  header$report_step = read_int(con)
+  
   metadata <- list(
     header = header,
     subcatch = subcatch,
@@ -156,7 +168,8 @@ read_out_metadata <- function(out_file)
     links = links,
     subcatch_vars = subcatch_vars,
     node_vars = node_vars,
-    link_vars = link_vars
+    link_vars = link_vars,
+    sys_result_ids = sys_result_ids
   )
   
   metadata
@@ -173,11 +186,16 @@ get_read_function <- function(...) {
 }
 
 # read_int ---------------------------------------------------------------------
-read_int <- function(con, n = 1) readBin(con, "integer", n)
+read_int <- function(con, n = 1) {
+  
+  readBin(con, "integer", n)
+}
 
 # read_num ---------------------------------------------------------------------
-read_num <- function(con, n = 1) readBin(con, "numeric", n, size = 4)
-
+read_num <- function(con, n = 1, size = 4) {
+  
+  readBin(con, "numeric", n, size = size)
+}
 # read_names -------------------------------------------------------------------
 read_names <- function(con, n) {
   
@@ -211,12 +229,6 @@ read_object_vars <- function(con, n, read_function, n_polluts) {
 # }
 # 
 # system.time(x <- readBin(out_file, what = "raw", n = n))# 
-# 
-# INT4 MAX_SYS_RESULTS
-# MAX_SYS_RESULTS * INT4 (values 0 to MAX_SYS_RESULTS - 1)
-# 
-# REAL8 StartDateTime (complicated calculation)
-# INT4 ReportStep
 # 
 # file_size <- file.size(out_file)
 # 
