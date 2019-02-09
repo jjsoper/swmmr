@@ -1,0 +1,151 @@
+SWMM Output Format Description
+==============================
+from output_open():
+-------------------
+
+01 INT4 MAGICNUMBER 
+02 INT4 VERSION
+03 INT4 FlowUnits
+04 INT4 NumSubcatch
+05 INT4 NumNodes
+06 INT4 NumLinks
+07 INT4 NumPolluts
+
+::IDStartPos::
+
+NumSubcatch * <name>
+NumNodes * <name>
+NumLinks * <name>
+NumPolluts * <name>
+
+NumPolluts * (
+  INT4 pollution units
+)
+
+::InputStartPos::
+
+INT4 "1"
+01 INT4 INPUT_AREA 
+NumSubcatch * (
+  REAL4 SubcatchResults[0] # area
+)
+
+INT4 "3"
+01 INT4 INPUT_TYPE_CODE
+02 INT4 INPUT_INVERT
+03 INT4 INPUT_MAX_DEPTH
+NumNodes * (
+  INT4 node.type
+  REAL4 NodeResults[0] # invert elevation
+  REAL4 NodeResults[1] # full depth
+)
+
+INT4 "5"
+01 INT4 INPUT_TYPE_CODE
+02 INT4 INPUT_OFFSET
+03 INT4 INPUT_OFFSET
+04 INT4 INPUT_MAX_DEPTH
+05 INT4 INPUT_LENGTH
+NumLinks * (
+  INT4 link.type
+  REAL4 LinkResults[0]
+  REAL4 LinkResults[1]
+  REAL4 LinkResults[2]
+  REAL4 LinkResults[3]
+)
+
+INT4 NumSubcatchVars
+01 INT4 SUBCATCH_RAINFALL
+02 INT4 SUBCATCH_SNOWDEPTH
+03 INT4 SUBCATCH_EVAP
+04 INT4 SUBCATCH_INFIL
+05 INT4 SUBCATCH_RUNOFF
+06 INT4 SUBCATCH_GW_FLOW
+07 INT4 SUBCATCH_GW_ELEV
+08 INT4 SUBCATCH_SOIL_MOIST
+NumPolluts * (
+  INT4 SUBCATCH_WASHOFF + j
+)
+
+INT4 NumNodeVars
+01 INT4 NODE_DEPTH
+02 INT4 NODE_HEAD
+03 INT4 NODE_VOLUME
+04 INT4 NODE_LATFLOW
+05 INT4 NODE_INFLOW
+06 INT4 NODE_OVERFLOW
+NumPolluts * (
+  INT4 NODE_QUAL + j
+)
+
+INT4 NumLinkVars
+01 INT4 LINK_FLOW
+02 INT4 LINK_DEPTH
+03 INT4 LINK_VELOCITY
+04 INT4 LINK_VOLUME
+05 INT4 LINK_CAPACITY
+NumPolluts * (
+  INT4 LINK_QUAL + j
+)
+
+INT4 MAX_SYS_RESULTS
+MAX_SYS_RESULTS * INT4 (values 0 to MAX_SYS_RESULTS - 1)
+
+REAL8 StartDateTime (complicated calculation)
+INT4 ReportStep
+
+::OutputStartPos::
+
+from output_saveResults():
+--------------------------
+REAL8 ReportDate
+
+NumSubcatch * (
+  NumSubcatchVars * REAL4 (SubcatchResults)
+)
+NumNodes * (
+  NumNodeVars * REAL4 (NodeResults)
+)
+NumLinks * (
+  NumLinkVars * REAL4 (LinkResults)
+)
+
+MAX_SYS_RESULTS (= 15) * REAL4
+
+from output_end():
+------------------
+01 INT4 IDStartPos
+02 INT4 InputStartPos
+03 INT4 OutputStartPos
+04 INT4 Nperiods
+05 INT4 ErrorCode
+06 INT4 MAGICNUMBER
+
+Placeholders:
+-------------
+name: (
+  INT4 n (= strlen(id))
+  n * char
+)
+
+Variables:
+----------
+NumSubcatchVars = MAX_SUBCATCH_RESULTS - 1 + NumPolluts
+NumNodeVars = MAX_NODE_RESULTS - 1 + NumPolluts
+NumLinkVars = MAX_LINK_RESULTS - 1 + NumPolluts
+
+SubcatchResults = NumSubcatchVars * REAL4
+NodeResults = NumNodeVars * REAL4
+LinkResults = NumLinkVars * REAL4
+    
+# numbers of reported objects
+NumSubcatch
+NumNodes
+NumLinks
+
+BytesPerPeriod = 
+  REAL8
+  + NumSubcatch * NumSubcatchVars * REAL4
+  + NumNodes * NumNodeVars * REAL4
+  + NumLinks * NumLinkVars * REAL4
+  + MAX_SYS_RESULTS * REAL4
