@@ -3,13 +3,40 @@ if (FALSE)
 {
   out_file <- "/home/hauke/Downloads/SWMM/result.out"
 
-  metadata <- read_out_metadata(out_file)
+  (metadata <- read_out_metadata(out_file))
   
   metadata$header$start_datetime <- as.POSIXct(
     metadata$header$start_datetime * 86400, origin = "1899-12-30", tz = "GMT"
   )
+
+  con <- file(out_file, "rb")
   
-  metadata
+  read_out_results(con, out_file, metadata, reset = TRUE)$datetime
+  
+  for (i in 1:1000) {
+    print(read_out_results(con, out_file, metadata)$datetime)
+  }
+  
+  close(con)
+}
+
+# read_out_results -------------------------------------------------------------
+read_out_results <- function(con, out_file, metadata, reset = FALSE)
+{
+  if (reset) {
+    
+    # Set file pointer to the start of the results
+    seek(con, where = metadata$offsets$output_start)
+  }
+
+  # Read result datetime and result values
+  list(
+    datetime = read_num(con, 1, size = 8), 
+    subcatch = read_num(con, metadata$block_sizes$subcatch),
+    node = read_num(con, metadata$block_sizes$nodes),
+    link = read_num(con, metadata$block_sizes$links),
+    system = read_num(con, metadata$block_sizes$system)
+  )
 }
 
 # field_config -----------------------------------------------------------------
@@ -131,12 +158,15 @@ read_out_metadata <- function(out_file)
     fun = read_functions$link
   )
 
+  # Provide number of pollutants
+  n_polluts <- object_counts$polluts
+  
   # Read subcatchment variables
   subcatch_vars <- read_object_vars(
     con,
     n = length(field_config$subcatch_vars),
     read_function = read_functions$subcatch_vars, 
-    n_polluts = object_counts$polluts
+    n_polluts = n_polluts
   )
   
   # Read node variables
@@ -144,7 +174,7 @@ read_out_metadata <- function(out_file)
     con,
     n = length(field_config$node_vars),
     read_function = read_functions$node_vars, 
-    n_polluts = object_counts$polluts
+    n_polluts = n_polluts
   )
 
   # Read link variables
@@ -152,16 +182,29 @@ read_out_metadata <- function(out_file)
     con,
     n = length(field_config$link_vars),
     read_function = read_functions$link_vars, 
-    n_polluts = object_counts$polluts
+    n_polluts = n_polluts
   )
 
+  # Read system variable count and "ids"
   max_sys_results <- read_int(con)
   sys_result_ids <- read_int(con, max_sys_results)
 
+  # Read start datetime and reporting time step
   header$start_datetime <- read_num(con, 1, size = 8)
   header$report_step = read_int(con)
   
-  metadata <- list(
+  # Save current file pointer offset
+  offsets$output_start <- seek(con, where = NA)
+
+  # Calculate block sizes (bs)
+  block_sizes = data.frame(
+    subcatch = object_counts$subcatch * (length(subcatch_vars) + n_polluts),
+    nodes = object_counts$node * (length(node_vars) + n_polluts),
+    links = object_counts$link * (length(link_vars) + n_polluts),
+    system = max_sys_results
+  )
+
+  list(
     header = header,
     subcatch = subcatch,
     nodes = nodes,
@@ -169,10 +212,10 @@ read_out_metadata <- function(out_file)
     subcatch_vars = subcatch_vars,
     node_vars = node_vars,
     link_vars = link_vars,
-    sys_result_ids = sys_result_ids
+    sys_result_ids = sys_result_ids,
+    offsets = as.data.frame(offsets),
+    block_sizes = block_sizes
   )
-  
-  metadata
 }
 
 # get_read_function ------------------------------------------------------------
