@@ -33,6 +33,31 @@ field_config <- list(
     offset_2 = "num",
     max_depth = "num",
     length = "num"
+  ),
+  subcatch_vars = list(
+    rainfall = "int",
+    snowdepth = "int",
+    evap = "int",
+    infil = "int",
+    runoff = "int",
+    gw_flow = "int",
+    gw_elev = "int",
+    soil_moist = "int"
+  ),
+  node_vars = list(
+    depth = "int",
+    head = "int",
+    volumne = "int",
+    latflow = "int",
+    inflow = "int",
+    overflow = "int"
+  ),
+  link_vars = list(
+    flow = "int",
+    depth = "int",
+    velocity = "int",
+    volume = "int",
+    capacity = "int"
   )
 )
 
@@ -91,12 +116,30 @@ read_out_metadata <- function(out_file)
     ids = object_names$links, 
     fun = read_functions$link
   )
+
+  n <- read_int(con, 1) # INT4 NumSubcatchVars
+  stopifnot(identical(n, length(field_config$subcatch_vars)))
+  subcatch_vars <- read_functions$subcatch_vars(1, con)
+  read_int(con, object_counts$polluts)
+
+  n <- read_int(con, 1) # INT4 NumNodeVars
+  stopifnot(identical(n, length(field_config$node_vars)))
+  node_vars <- read_functions$node_vars(1, con)
+  read_int(con, object_counts$polluts)
+
+  n <- read_int(con, 1) # INT4 NumLinkVars
+  stopifnot(identical(n, length(field_config$link_vars)))
+  link_vars <- read_functions$link_vars(1, con)
+  read_int(con, object_counts$polluts)
   
   metadata <- list(
     header = header,
     subcatch = subcatch,
     nodes = nodes,
-    links = links
+    links = links,
+    subcatch_vars = subcatch_vars,
+    node_vars = node_vars,
+    link_vars = link_vars
   )
   
   metadata
@@ -144,50 +187,13 @@ read_objects <- function(n, con, ids, fun) {
 #   print(tail(raw_bytes))
 # }
 # 
-# 
 # system.time(x <- readBin(out_file, what = "raw", n = n))# 
-# 
-# INT4 NumSubcatchVars
-# 01 INT4 SUBCATCH_RAINFALL
-# 02 INT4 SUBCATCH_SNOWDEPTH
-# 03 INT4 SUBCATCH_EVAP
-# 04 INT4 SUBCATCH_INFIL
-# 05 INT4 SUBCATCH_RUNOFF
-# 06 INT4 SUBCATCH_GW_FLOW
-# 07 INT4 SUBCATCH_GW_ELEV
-# 08 INT4 SUBCATCH_SOIL_MOIST
-# NumPolluts * (
-#   INT4 SUBCATCH_WASHOFF + j
-# )
-# 
-# INT4 NumNodeVars
-# 01 INT4 NODE_DEPTH
-# 02 INT4 NODE_HEAD
-# 03 INT4 NODE_VOLUME
-# 04 INT4 NODE_LATFLOW
-# 05 INT4 NODE_INFLOW
-# 06 INT4 NODE_OVERFLOW
-# NumPolluts * (
-#   INT4 NODE_QUAL + j
-# )
-# 
-# INT4 NumLinkVars
-# 01 INT4 LINK_FLOW
-# 02 INT4 LINK_DEPTH
-# 03 INT4 LINK_VELOCITY
-# 04 INT4 LINK_VOLUME
-# 05 INT4 LINK_CAPACITY
-# NumPolluts * (
-#   INT4 LINK_QUAL + j
-# )
 # 
 # INT4 MAX_SYS_RESULTS
 # MAX_SYS_RESULTS * INT4 (values 0 to MAX_SYS_RESULTS - 1)
 # 
 # REAL8 StartDateTime (complicated calculation)
 # INT4 ReportStep
-# 
-# 
 # 
 # file_size <- file.size(out_file)
 # 
