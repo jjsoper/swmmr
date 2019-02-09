@@ -103,7 +103,7 @@ read_out_metadata <- function(out_file)
 
   # Read subcatchment properties
   subcatch <- read_objects(
-    con = con,
+    con,
     n = length(field_config$subcatch), 
     ids = object_names$subcatch, 
     fun = read_functions$subcatch
@@ -111,7 +111,7 @@ read_out_metadata <- function(out_file)
 
   # Read node properties
   nodes <- read_objects(
-    con = con,
+    con,
     n = length(field_config$node), 
     ids = object_names$nodes, 
     fun = read_functions$node
@@ -119,7 +119,7 @@ read_out_metadata <- function(out_file)
 
   # Read link properties
   links <- read_objects(
-    con = con,
+    con,
     n = length(field_config$link), 
     ids = object_names$links, 
     fun = read_functions$link
@@ -128,7 +128,7 @@ read_out_metadata <- function(out_file)
   # Read subcatchment variables
   subcatch_vars <- read_object_vars(
     con,
-    n_expected = length(field_config$subcatch_vars),
+    n = length(field_config$subcatch_vars),
     read_function = read_functions$subcatch_vars, 
     n_polluts = object_counts$polluts
   )
@@ -136,7 +136,7 @@ read_out_metadata <- function(out_file)
   # Read node variables
   node_vars <- read_object_vars(
     con,
-    n_expected = length(field_config$node_vars),
+    n = length(field_config$node_vars),
     read_function = read_functions$node_vars, 
     n_polluts = object_counts$polluts
   )
@@ -144,7 +144,7 @@ read_out_metadata <- function(out_file)
   # Read link variables
   link_vars <- read_object_vars(
     con,
-    n_expected = length(field_config$link_vars),
+    n = length(field_config$link_vars),
     read_function = read_functions$link_vars, 
     n_polluts = object_counts$polluts
   )
@@ -160,16 +160,6 @@ read_out_metadata <- function(out_file)
   )
   
   metadata
-}
-
-# read_object_vars -------------------------------------------------------------
-read_object_vars <- function(con, n_expected, read_function, n_polluts)
-{
-  n <- read_int(con, 1) # INT4 NumSubcatchVars
-  stopifnot(identical(n, n_expected))
-  result <- read_function(con, 1)
-  read_int(con, n_polluts)
-  result
 }
 
 # get_read_function ------------------------------------------------------------
@@ -198,12 +188,18 @@ read_names <- function(con, n) {
 read_objects <- function(con, n, ids, fun) {
   
   stopifnot(identical(read_int(con), n))
-  
   read_int(con, n)
-  
   data <- do.call(rbind, lapply(ids, fun, con = con))
-  
   data.frame(name = ids, data, stringsAsFactors = FALSE)
+}
+
+# read_object_vars -------------------------------------------------------------
+read_object_vars <- function(con, n, read_function, n_polluts) {
+  
+  stopifnot(identical(read_int(con), n))
+  result <- read_function(con, 1)
+  read_int(con, n_polluts)
+  result
 }
 
 # for (i in seq_len(n)) {
