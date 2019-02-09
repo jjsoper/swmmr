@@ -11,10 +11,23 @@ if (FALSE)
 
   con <- file(out_file, "rb")
   
-  read_out_results(con, out_file, metadata, reset = TRUE)$datetime
+  seek(con, metadata$offsets$output_start)
   
-  for (i in 1:1000) {
-    print(read_out_results(con, out_file, metadata)$datetime)
+  #read_out_results(con, out_file, metadata, reset = TRUE)$datetime
+  
+  n_periods <- metadata$footer$n_periods
+  
+  results <- list()
+  
+  for (i in seq_len(n_periods)) {
+    
+    tmp_result <- read_out_results(con, out_file, metadata)
+    
+    if ((i - 1) %% 86400 == 0) {
+      list_index <- i %/% 86400
+      cat(list_index, "/", n_periods %/% 86400, "\n")
+      results[[list_index + 1]] <- tmp_result
+    }
   }
   
   close(con)
@@ -42,10 +55,19 @@ read_out_results <- function(con, out_file, metadata, reset = FALSE)
 # field_config -----------------------------------------------------------------
 field_config <- list(
   
-  meta_header = list(
+  header = list(
     magic_number = "int",
     version = "int",
     flow_units = "int"
+  ),
+  
+  footer = list(
+    offset_ids = "int",
+    offset_inputs = "int",
+    offset_ouputs = "int",
+    n_periods = "int",
+    error_code = "int",
+    magic_number = "int"
   ),
   
   counts = list(
@@ -120,7 +142,7 @@ read_out_metadata <- function(out_file)
   offsets <- list()
 
   # Read first header fields
-  header <- read_functions$meta_header(con, 1)
+  header <- read_functions$header(con, 1)
   
   # Read numbers of subcatchments, nodes, links, pollutants
   object_counts <- read_functions$counts(con, 1)
@@ -196,7 +218,12 @@ read_out_metadata <- function(out_file)
   # Save current file pointer offset
   offsets$output_start <- seek(con, where = NA)
 
-  # Calculate block sizes (bs)
+  # Read datasets from the end of the file 
+  n_bytes <- 4 * length(field_config$footer)
+  seek(con, - n_bytes, origin = "end")
+  footer <- read_functions$footer(con, 1)
+  
+  # Calculate block sizes
   block_sizes = data.frame(
     subcatch = object_counts$subcatch * (length(subcatch_vars) + n_polluts),
     nodes = object_counts$node * (length(node_vars) + n_polluts),
@@ -214,7 +241,8 @@ read_out_metadata <- function(out_file)
     link_vars = link_vars,
     sys_result_ids = sys_result_ids,
     offsets = as.data.frame(offsets),
-    block_sizes = block_sizes
+    block_sizes = block_sizes,
+    footer = footer
   )
 }
 
