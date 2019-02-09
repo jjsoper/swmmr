@@ -117,21 +117,30 @@ read_out_metadata <- function(out_file)
     fun = read_functions$link
   )
 
-  n <- read_int(con, 1) # INT4 NumSubcatchVars
-  stopifnot(identical(n, length(field_config$subcatch_vars)))
-  subcatch_vars <- read_functions$subcatch_vars(1, con)
-  read_int(con, object_counts$polluts)
-
-  n <- read_int(con, 1) # INT4 NumNodeVars
-  stopifnot(identical(n, length(field_config$node_vars)))
-  node_vars <- read_functions$node_vars(1, con)
-  read_int(con, object_counts$polluts)
-
-  n <- read_int(con, 1) # INT4 NumLinkVars
-  stopifnot(identical(n, length(field_config$link_vars)))
-  link_vars <- read_functions$link_vars(1, con)
-  read_int(con, object_counts$polluts)
+  # Read subcatchment variables
+  subcatch_vars <- read_object_vars(
+    con,
+    n_expected = length(field_config$subcatch_vars),
+    read_function = read_functions$subcatch_vars, 
+    n_polluts = object_counts$polluts
+  )
   
+  # Read node variables
+  node_vars <- read_object_vars(
+    con,
+    n_expected = length(field_config$node_vars),
+    read_function = read_functions$node_vars, 
+    n_polluts = object_counts$polluts
+  )
+
+  # Read link variables
+  link_vars <- read_object_vars(
+    con,
+    n_expected = length(field_config$link_vars),
+    read_function = read_functions$link_vars, 
+    n_polluts = object_counts$polluts
+  )
+
   metadata <- list(
     header = header,
     subcatch = subcatch,
@@ -143,6 +152,16 @@ read_out_metadata <- function(out_file)
   )
   
   metadata
+}
+
+# read_object_vars -------------------------------------------------------------
+read_object_vars <- function(con, n_expected, read_function, n_polluts)
+{
+  n <- read_int(con, 1) # INT4 NumSubcatchVars
+  stopifnot(identical(n, n_expected))
+  result <- read_function(1, con)
+  read_int(con, n_polluts)
+  result
 }
 
 # get_read_function ------------------------------------------------------------
