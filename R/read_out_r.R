@@ -8,25 +8,30 @@ if (FALSE)
 
 # field_config -----------------------------------------------------------------
 field_config <- list(
+  
   meta_header = list(
     magic_number = "int",
     version = "int",
     flow_units = "int"
   ),
+  
   counts = list(
     subcatch = "int", 
     nodes = "int", 
     links = "int",
     polluts = "int"
   ),
+  
   subcatch = list(
     area = "num"
   ),
+  
   node = list(
     node_type = "int", 
     invert_elevation = "num", 
     full_depth = "num"
   ),
+  
   link = list(
     link_type = "int",
     offset_1 = "num",
@@ -34,6 +39,7 @@ field_config <- list(
     max_depth = "num",
     length = "num"
   ),
+  
   subcatch_vars = list(
     rainfall = "int",
     snowdepth = "int",
@@ -44,6 +50,7 @@ field_config <- list(
     gw_elev = "int",
     soil_moist = "int"
   ),
+  
   node_vars = list(
     depth = "int",
     head = "int",
@@ -52,6 +59,7 @@ field_config <- list(
     inflow = "int",
     overflow = "int"
   ),
+  
   link_vars = list(
     flow = "int",
     depth = "int",
