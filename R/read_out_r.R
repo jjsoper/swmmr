@@ -79,13 +79,13 @@ read_out_metadata <- function(out_file)
   offsets <- list()
 
   # Read first header fields
-  header <- read_functions$meta_header(1, con)
+  header <- read_functions$meta_header(con, 1)
   
   # Read numbers of subcatchments, nodes, links, pollutants
-  object_counts <- read_functions$counts(1, con)
+  object_counts <- read_functions$counts(con, 1)
   
   # Read names of subcatchments, nodes, links
-  object_names <- lapply(object_counts, read_names, con)
+  object_names <- lapply(object_counts, read_names, con = con)
 
   # Read pollution units  
   pollution_units <- read_int(con, object_counts$polluts)
@@ -95,24 +95,24 @@ read_out_metadata <- function(out_file)
 
   # Read subcatchment properties
   subcatch <- read_objects(
-    n = length(field_config$subcatch), 
     con = con,
+    n = length(field_config$subcatch), 
     ids = object_names$subcatch, 
     fun = read_functions$subcatch
   )
 
   # Read node properties
   nodes <- read_objects(
-    n = length(field_config$node), 
     con = con,
+    n = length(field_config$node), 
     ids = object_names$nodes, 
     fun = read_functions$node
   )
 
   # Read link properties
   links <- read_objects(
-    n = length(field_config$link), 
     con = con,
+    n = length(field_config$link), 
     ids = object_names$links, 
     fun = read_functions$link
   )
@@ -159,7 +159,7 @@ read_object_vars <- function(con, n_expected, read_function, n_polluts)
 {
   n <- read_int(con, 1) # INT4 NumSubcatchVars
   stopifnot(identical(n, n_expected))
-  result <- read_function(1, con)
+  result <- read_function(con, 1)
   read_int(con, n_polluts)
   result
 }
@@ -167,7 +167,7 @@ read_object_vars <- function(con, n_expected, read_function, n_polluts)
 # get_read_function ------------------------------------------------------------
 get_read_function <- function(...) {
   
-  function(i, con) {
+  function(con, i) {
     as.data.frame(stringsAsFactors = FALSE, lapply(list(...), function(x) {
       (list(int = read_int, num = read_num)[[x]])(con)
     }))
@@ -181,19 +181,19 @@ read_int <- function(con, n = 1) readBin(con, "integer", n)
 read_num <- function(con, n = 1) readBin(con, "numeric", n, size = 4)
 
 # read_names -------------------------------------------------------------------
-read_names <- function(n, con) {
+read_names <- function(con, n) {
   
   sapply(seq_len(n), function(i) readChar(con, readBin(con, "integer")))
 }
 
 # read_objects -----------------------------------------------------------------
-read_objects <- function(n, con, ids, fun) {
+read_objects <- function(con, n, ids, fun) {
   
   stopifnot(identical(read_int(con), n))
   
   read_int(con, n)
   
-  data <- do.call(rbind, lapply(ids, fun, con))
+  data <- do.call(rbind, lapply(ids, fun, con = con))
   
   data.frame(name = ids, data, stringsAsFactors = FALSE)
 }
