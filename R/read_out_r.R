@@ -1,318 +1,96 @@
-# M A I N ----------------------------------------------------------------------
+# M A I N  1 -------------------------------------------------------------------
 if (FALSE)
 {
-  out_file <- "/home/hauke/Downloads/SWMM/result.out"
+  # Path to SWMM executable
+  exec <- "/home/hauke/CProgramming/Stormwater-Management-Model/bin/run-swmm"
 
-  (metadata <- read_out_metadata(out_file))
+  # Set working directory to extdata directory of this package
+  setwd(system.file("extdata", package = "swmmr"))
+  setwd("/home/hauke/Downloads/SWMM")
   
-  metadata$header$start_datetime <- as.POSIXct(
-    metadata$header$start_datetime * 86400, origin = "1899-12-30", tz = "GMT"
-  )
+  # List files in current directory
+  dir()
 
-  con <- file(out_file, "rb")
+  # Run SWMM on an example file
+  files <- swmmr::run_swmm("Example2.inp", exec = exec)
   
-  seek(con, metadata$offsets$output_start)
+  # Set path to an output file  
+  out_file <- "result.out"
+  out_file <- "result_example1.out"
+  out_file <- files$out
+
+  # Read metadata from the output file
+  metadata <- swmmr:::read_out_metadata(out_file)
+
+  # Start date and time
+  swmmr:::times_num_to_times_posix(metadata$header$start_datetime)
   
-  #read_out_results(con, out_file, metadata, reset = TRUE)$datetime
-  
+  # Maximum number of periods
   n_periods <- metadata$footer$n_periods
-  
-  results <- list()
-  
-  for (i in seq_len(n_periods)) {
-    
-    tmp_result <- read_out_results(con, out_file, metadata)
-    
-    if ((i - 1) %% 86400 == 0) {
-      list_index <- i %/% 86400
-      cat(list_index, "/", n_periods %/% 86400, "\n")
-      results[[list_index + 1]] <- tmp_result
-    }
-  }
-  
-  close(con)
-}
 
-# read_out_results -------------------------------------------------------------
-read_out_results <- function(con, out_file, metadata, reset = FALSE)
-{
-  if (reset) {
-    
-    # Set file pointer to the start of the results
-    seek(con, where = metadata$offsets$output_start)
-  }
-
-  # Read result datetime and result values
-  list(
-    datetime = read_num(con, 1, size = 8), 
-    subcatch = read_num(con, metadata$block_sizes$subcatch),
-    node = read_num(con, metadata$block_sizes$nodes),
-    link = read_num(con, metadata$block_sizes$links),
-    system = read_num(con, metadata$block_sizes$system)
+  # Read the output file with the original function
+  result_orig <- swmmr::read_out(out_file, 1)
+  
+  # Define different possible values for argument "n_parts"
+  n_part_options <- 2^(seq(3, by = 2, length.out = 7))
+  #n_part_options <- c(1, 2)
+  
+  # Define arguments to the read function
+  arguments <- list(
+    out_file = out_file,
+    type_index = 1,
+    obj_indices = 1:2,
+    var_indices = 1:3,
+    period_range = c(1, min(n_periods, 1000000)),
+    all_in_one = FALSE,
+    by_object = TRUE,
+    dbg = FALSE
   )
-}
 
-# field_config -----------------------------------------------------------------
-field_config <- list(
+  system.time(result <- do.call(swmmr:::read_results, c(arguments, n_parts = 1000)))
   
-  header = list(
-    magic_number = "int",
-    version = "int",
-    flow_units = "int"
-  ),
+  lapply(result, names)
+  # J5_head J5_volume J5_latflow J6_head J6_volume J6_latflow
   
-  footer = list(
-    offset_ids = "int",
-    offset_inputs = "int",
-    offset_ouputs = "int",
-    n_periods = "int",
-    error_code = "int",
-    magic_number = "int"
-  ),
-  
-  counts = list(
-    subcatch = "int", 
-    nodes = "int", 
-    links = "int",
-    polluts = "int"
-  ),
-  
-  subcatch = list(
-    area = "num"
-  ),
-  
-  node = list(
-    node_type = "int", 
-    invert_elevation = "num", 
-    full_depth = "num"
-  ),
-  
-  link = list(
-    link_type = "int",
-    offset_1 = "num",
-    offset_2 = "num",
-    max_depth = "num",
-    length = "num"
-  ),
-  
-  subcatch_vars = list(
-    rainfall = "int",
-    snowdepth = "int",
-    evap = "int",
-    infil = "int",
-    runoff = "int",
-    gw_flow = "int",
-    gw_elev = "int",
-    soil_moist = "int"
-  ),
-  
-  node_vars = list(
-    depth = "int",
-    head = "int",
-    volumne = "int",
-    latflow = "int",
-    inflow = "int",
-    overflow = "int"
-  ),
-  
-  link_vars = list(
-    flow = "int",
-    depth = "int",
-    velocity = "int",
-    volume = "int",
-    capacity = "int"
-  )
-)
-
-# read_out_metadata ------------------------------------------------------------
-read_out_metadata <- function(out_file)
-{
-  # Provide read-functions
-  read_functions <- lapply(field_config, function(x) {
-    do.call(get_read_function, x)
+  # Read the output file with the new function, with different "n_parts"
+  results <- lapply(n_part_options, function(n_parts) {
+    kwb.utils::catAndRun(
+      messageText = paste("Reading with n_parts =", n_parts),
+      newLine = 3,
+      expr = do.call(swmmr:::read_results, c(arguments, n_parts = n_parts))
+    )
   })
   
-  # Open output file
-  con <- file(out_file, "rb")
-  
-  # Close output file on exit
-  on.exit(close(con))
-  
-  # Initialise list of offsets
-  offsets <- list()
-
-  # Read first header fields
-  header <- read_functions$header(con, 1)
-  
-  # Read numbers of subcatchments, nodes, links, pollutants
-  object_counts <- read_functions$counts(con, 1)
-  
-  # Read names of subcatchments, nodes, links
-  object_names <- lapply(object_counts, read_names, con = con)
-
-  # Read pollution units  
-  pollution_units <- read_int(con, object_counts$polluts)
-  
-  # Save current file pointer offset
-  offsets$input_start <- seek(con, where = NA)
-
-  # Read subcatchment properties
-  subcatch <- read_objects(
-    con,
-    n = length(field_config$subcatch), 
-    ids = object_names$subcatch, 
-    fun = read_functions$subcatch
-  )
-
-  # Read node properties
-  nodes <- read_objects(
-    con,
-    n = length(field_config$node), 
-    ids = object_names$nodes, 
-    fun = read_functions$node
-  )
-
-  # Read link properties
-  links <- read_objects(
-    con,
-    n = length(field_config$link), 
-    ids = object_names$links, 
-    fun = read_functions$link
-  )
-
-  # Provide number of pollutants
-  n_polluts <- object_counts$polluts
-  
-  # Read subcatchment variables
-  subcatch_vars <- read_object_vars(
-    con,
-    n = length(field_config$subcatch_vars),
-    read_function = read_functions$subcatch_vars, 
-    n_polluts = n_polluts
-  )
-  
-  # Read node variables
-  node_vars <- read_object_vars(
-    con,
-    n = length(field_config$node_vars),
-    read_function = read_functions$node_vars, 
-    n_polluts = n_polluts
-  )
-
-  # Read link variables
-  link_vars <- read_object_vars(
-    con,
-    n = length(field_config$link_vars),
-    read_function = read_functions$link_vars, 
-    n_polluts = n_polluts
-  )
-
-  # Read system variable count and "ids"
-  max_sys_results <- read_int(con)
-  sys_result_ids <- read_int(con, max_sys_results)
-
-  # Read start datetime and reporting time step
-  header$start_datetime <- read_num(con, 1, size = 8)
-  header$report_step = read_int(con)
-  
-  # Save current file pointer offset
-  offsets$output_start <- seek(con, where = NA)
-
-  # Read datasets from the end of the file 
-  n_bytes <- 4 * length(field_config$footer)
-  seek(con, - n_bytes, origin = "end")
-  footer <- read_functions$footer(con, 1)
-  
-  # Calculate block sizes
-  block_sizes = data.frame(
-    subcatch = object_counts$subcatch * (length(subcatch_vars) + n_polluts),
-    nodes = object_counts$node * (length(node_vars) + n_polluts),
-    links = object_counts$link * (length(link_vars) + n_polluts),
-    system = max_sys_results
-  )
-
-  list(
-    header = header,
-    subcatch = subcatch,
-    nodes = nodes,
-    links = links,
-    subcatch_vars = subcatch_vars,
-    node_vars = node_vars,
-    link_vars = link_vars,
-    sys_result_ids = sys_result_ids,
-    offsets = as.data.frame(offsets),
-    block_sizes = block_sizes,
-    footer = footer
-  )
+  # Check that the setting of "n_parts" does not influence the result
+  stopifnot(kwb.utils::allAreIdentical(results))
 }
 
-# get_read_function ------------------------------------------------------------
-get_read_function <- function(...) {
-  
-  function(con, i) {
-    as.data.frame(stringsAsFactors = FALSE, lapply(list(...), function(x) {
-      (list(int = read_int, num = read_num)[[x]])(con)
-    }))
-  }
-}
+# Try to read blocks of different sizes from the output file -------------------
+if (FALSE)
+{
+  # Size of output file in bytes
+  file_size <- file.size(out_file)
 
-# read_int ---------------------------------------------------------------------
-read_int <- function(con, n = 1) {
+  # Define different possible block sizes in bytes
+  blocksizes <- 2^(20:40)
   
-  readBin(con, "integer", n)
-}
+  # Block sizes that are smaller than the file in decreasing order
+  blocksizes <- rev(blocksizes[blocksizes < file_size])
+  
+  # Check what block sizes can be read without getting an error
+  readable <- ! sapply(blocksizes, function(n) {
+    kwb.utils::catAndRun(
+      messageText = paste("Trying to read a block of", n / (1024^2), "MB"),
+      expr = inherits(try(readBin(out_file, "raw", n)), "try-error")
+    )
+  })
 
-# read_num ---------------------------------------------------------------------
-read_num <- function(con, n = 1, size = 4) {
+  # Second largest readable size
+  size <- blocksizes[which(readable)][2]
   
-  readBin(con, "numeric", n, size = size)
-}
-# read_names -------------------------------------------------------------------
-read_names <- function(con, n) {
-  
-  sapply(seq_len(n), function(i) readChar(con, readBin(con, "integer")))
-}
+  # Size in megabytes
+  (size_mb <- size / (1024^2))
 
-# read_objects -----------------------------------------------------------------
-read_objects <- function(con, n, ids, fun) {
-  
-  stopifnot(identical(read_int(con), n))
-  read_int(con, n)
-  data <- do.call(rbind, lapply(ids, fun, con = con))
-  data.frame(name = ids, data, stringsAsFactors = FALSE)
+  # Number of blocks of given size required to read the whole file
+  n <- ceiling(file_size / size)
 }
-
-# read_object_vars -------------------------------------------------------------
-read_object_vars <- function(con, n, read_function, n_polluts) {
-  
-  stopifnot(identical(read_int(con), n))
-  result <- read_function(con, 1)
-  read_int(con, n_polluts)
-  result
-}
-
-# for (i in seq_len(n)) {
-#   cat(sprintf("Reading block %d/%d\n", i, n))
-#   raw_bytes <- readBin(con, what = "raw", n = size)
-#   print(length(raw_bytes))
-#   print(head(raw_bytes))
-#   print(tail(raw_bytes))
-# }
-# 
-# system.time(x <- readBin(out_file, what = "raw", n = n))# 
-# 
-# file_size <- file.size(out_file)
-# 
-# blocksizes <- 2^(10:30)
-# blocksizes <- rev(blocksizes[blocksizes < file_size])
-# 
-# readable <- sapply(blocksizes, function(n) {
-#   print(n)
-#   ! inherits(try(readBin(out_file, "raw", n)), "try-error")
-# })
-# 
-# size <- blocksizes[which(readable)][2]
-# size_mb <- size/(1024^2)
-# 
-# n <- file_size %/% size
-# 
