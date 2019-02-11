@@ -1,7 +1,8 @@
 # read_results -----------------------------------------------------------------
 read_results <- function(
-  out_file, type_index, obj_indices, var_indices, period_range, n_parts = 100,
-  metadata = NULL, all_in_one = FALSE, by_object = FALSE, dbg = TRUE
+  out_file, type_index, obj_indices, var_indices, period_range, n_parts = NULL,
+  metadata = NULL, all_in_one = FALSE, by_object = FALSE, blocksize_mb = 128,
+  dbg = TRUE
 )
 {
   if (FALSE) {
@@ -12,6 +13,17 @@ read_results <- function(
   if (is.null(metadata)) {
     
     metadata <- read_out_metadata(out_file)
+  }
+  
+  # Find a good value for n_parts if no value is given
+  if (is.null(n_parts)) {
+    
+    n_parts <- swmmr:::find_good_number_of_parts(
+      file_size = file.size(out_file), 
+      metadata = metadata, 
+      period_range = period_range,
+      blocksize_mb = blocksize_mb
+    )
   }
   
   # Determine start and end period for each of the n_parts blocks to read
@@ -89,6 +101,38 @@ read_results <- function(
       xts_matrix, metadata, type_index, obj_indices, var_indices, by_object
     )
   }
+}
+
+# find_good_number_of_parts ----------------------------------------------------
+find_good_number_of_parts <- function(
+  file_size, metadata, period_range, blocksize_mb = 128
+)
+{
+  n_periods <- metadata$footer$n_periods
+  bytes_per_period <- (8 + 4 * sum(metadata$block_sizes))
+  
+  if (! identical(
+    bytes_per_period * n_periods, 
+    file_size - metadata$offsets$output_start - 6 *4
+  )) {
+    
+    stop(
+      "The calculated number of bytes in the file does not correspond to ", 
+      "the file size minus header and footer bytes", call. = FALSE
+    )
+  }
+
+  bytes_requested <- (diff(period_range) + 1) * bytes_per_period
+  
+  # At least one part
+  n_parts <- max(1, round((bytes_requested / 1024^2) / blocksize_mb))
+  
+  message(sprintf(
+    "The file will be read in %d parts of about %d MB each", 
+    n_parts, round(blocksize_mb)
+  ))
+  
+  n_parts
 }
 
 # get_block_ranges -------------------------------------------------------------

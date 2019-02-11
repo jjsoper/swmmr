@@ -7,9 +7,13 @@ if (FALSE)
   # Set working directory to extdata directory of this package
   setwd(system.file("extdata", package = "swmmr"))
   setwd("/home/hauke/Downloads/SWMM")
+  setwd(file.path(
+    "//medusa/projekte$/SUW_Department/Projects/netWORKS4/Data-Work packages", 
+    "Modellierung/Fokusgebiet_1A"
+  ))
   
   # List files in current directory
-  dir()
+  dir(pattern = "out$")
 
   # Run SWMM on an example file
   files <- swmmr::run_swmm("Example2.inp", exec = exec)
@@ -18,7 +22,8 @@ if (FALSE)
   out_file <- "result.out"
   out_file <- "result_example1.out"
   out_file <- files$out
-
+  out_file <- "Fokusgebiet_1A_60y.out"
+  
   # Read metadata from the output file
   metadata <- swmmr:::read_out_metadata(out_file)
 
@@ -29,7 +34,7 @@ if (FALSE)
   n_periods <- metadata$footer$n_periods
 
   # Read the output file with the original function
-  result_orig <- swmmr::read_out(out_file, 1)
+  #result_orig <- swmmr::read_out(out_file, 1)
   
   # Define different possible values for argument "n_parts"
   n_part_options <- 2^(seq(3, by = 2, length.out = 7))
@@ -43,13 +48,14 @@ if (FALSE)
     var_indices = 1:3,
     period_range = c(1, min(n_periods, 1000000)),
     all_in_one = FALSE,
-    by_object = TRUE,
-    dbg = FALSE
+    by_object = FALSE,
+    blocksize_mb = 1024
+    #, dbg = TRUE
   )
 
-  system.time(result <- do.call(swmmr:::read_results, c(arguments, n_parts = 1000)))
-  
-  lapply(result, names)
+  system.time(result2 <- do.call(swmmr:::read_results, arguments))
+              
+  #lapply(result, names)
   # J5_head J5_volume J5_latflow J6_head J6_volume J6_latflow
   
   # Read the output file with the new function, with different "n_parts"
