@@ -48,7 +48,6 @@ get_blocksizes <- function(config) {
 # get_offsets ------------------------------------------------------------------
 get_offsets <- function(blocksizes) {
   names_backup <- names(blocksizes)
-  blocksizes <- get_blocksizes(config)
   offsets <- c(0, cumsum(blocksizes)[-length(blocksizes)])
   stats::setNames(offsets, names_backup)
 }
