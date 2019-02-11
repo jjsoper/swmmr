@@ -300,7 +300,7 @@ split_by_object_or_variable <- function(
     dimnames = rev(names_list)
   )
 
-  (indices <- seq_len(dim(index_matrix)[ifelse(by_object, 2, 1)]))
+  (indices <- seq_along(names_list[[ifelse(by_object, 1, 2)]]))
     
   stats::setNames(
     object = lapply(indices, function(i) {
@@ -310,9 +310,9 @@ split_by_object_or_variable <- function(
         index_matrix[i, ]
       }
       result <- xts_matrix[, columns]
-      colnames(result) <- names(columns)
+      colnames(result) <- names_list[[ifelse(by_object, 2, 1)]]
       result
     }), 
-    nm = dimnames(index_matrix)[[ifelse(by_object, 2, 1)]]
+    nm = names_list[[ifelse(by_object, 1, 2)]]
   )
 }
