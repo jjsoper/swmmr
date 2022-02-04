@@ -184,6 +184,9 @@ parse_section.infiltration <- function(x, ...) {
     "green_ampt" = c(
       "Subcatchment", "Suction", "Ksat", "IMD"
     ), 
+    "modified_green_ampt" = c(
+      "Subcatchment", "Suction", "Ksat", "IMD"
+    ), 
     "curve_number" = c(
       "Subcatchment", "CurveNum", "empty", "DryTime"
     )
