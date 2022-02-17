@@ -26,7 +26,7 @@ section_to_tbl <- function(x, section_name, rm.comment = FALSE, options = NULL) 
   } else {
     x <- parse_section(x)
   }
-  
+
   # if a section is not parsed, we return NULL
   if (is.null(x)) return(NULL)
   
@@ -97,7 +97,7 @@ skip_head <- function(df, n)
 #' import helper
 #' @keywords internal
 parse_section.options <- function(x, ...) {
-  
+
   separate_into(x, c("Option", "Value"))
 }
 
@@ -111,14 +111,14 @@ parse_section.title <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.raingages <- function(x, ...) {
-  
+
   separate_into(x, c("Name", "Format", "Interval", "SCF", "Source"))
 }
 
 #' import helper
 #' @keywords internal
 parse_section.hydrographs <- function(x, ...) {
-  
+
   separate_into(x, c(
     "Hydrograph", "Rain Gage/Month", "Response", "R", "T", "K", "Dmax", 
     "Drecov", "Dinit"
@@ -175,7 +175,7 @@ parse_section.subareas <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.infiltration <- function(x, ...) {
-  
+
   # Exactly one additional argument must be given in ...
   arguments <- list(...)
   stopifnot(length(arguments) == 1L)
@@ -183,7 +183,7 @@ parse_section.infiltration <- function(x, ...) {
   horton_header <- c("MaxRate", "MinRate", "Decay", "DryTime", "MaxInfil")
   green_ampt_header <- c("Suction", "Ksat", "IMD")
   curve_number_header <- c("CurveNum", "empty", "DryTime")
-  
+
   header <- switch(
     arguments[[1L]], 
     horton = horton_header, 
@@ -191,7 +191,7 @@ parse_section.infiltration <- function(x, ...) {
     modified_green_ampt = green_ampt_header,
     curve_number = curve_number_header
   )
-  
+
   separate_into(x, c("Subcatchment", header))
 }
 
@@ -209,14 +209,14 @@ parse_section.aquifers <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.snowpacks <- function(x, ...) {
-  
+
   separate_into(x, c("Name", "Surface", "Parameters"))
 }
 
 #' import helper
 #' @keywords internal
 parse_section.junctions <- function(x, ...) {
-  
+
   separate_into(x, sep = "\\s+", fill = "warn", into = c(
     "Name", "Elevation", "MaxDepth", "InitDepth", "SurDepth", "Aponded"
   ))
@@ -238,7 +238,7 @@ parse_section.outfalls <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.dividers <- function(x, ...) {
-  
+
   separate_into(x, c(
     "Name", "Elevation", "Diverted Link", "Type", "Parameters"
   ))
@@ -277,7 +277,7 @@ parse_section.pumps <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.orifices <- function(x, ...) {
-  
+
   separate_into(x, c(
     "Name", "From Node", "To Node", "Type", "Offset", "Qcoeff", "Gated", 
     "CloseTime"
@@ -432,7 +432,7 @@ parse_section.timeseries <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.curves <- function(x, ...) {
-  
+
   dplyr::mutate(x, value = trimws(value, which = "right")) %>% 
     separate_into(fill = "right", c("Name", "value")) %>% 
     separate_into(c("Type", "X-Value", "Y-Value"))
@@ -597,7 +597,7 @@ parse_section.subcatchment_summary <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.node_summary <- function(x, ...) {
-  
+
   separate_into(skip_head(x, 5), fill = "right", c(
     "Name", "Type", "Invert_Elev", "Max_Depth", "Ponded_Area", "External_Inflow"
   ))
@@ -687,7 +687,7 @@ parse_section.time_step_critical_elements <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.flow_routing_continuity <- function(x, ...) {
-  
+
   separate_into(skip_head(x, 2), sep = "\\.{4,}", c("Component", "value")) %>% 
     dplyr::mutate_all(trimws) %>% 
     separate_into(c("Volume_a", "Volume_b"))
@@ -740,7 +740,7 @@ parse_section.lid_performance_summary <- function(x, ...) {
   
   #c("Total","Evap","Infil","Surface","Drain","Initial","Final","Continuity")
   #c("Inflow","Loss","Loss","Outflow","Outflow","Storage","Storage","Error")
-  
+
   separate_into(skip_head(x, 6), c(
     "Subcatchment","LID Control", 
     paste(
@@ -821,7 +821,7 @@ parse_section.outfall_loading_summary <- function(x, ...) {
 #' import helper
 #' @keywords internal
 parse_section.link_flow_summary <- function(x, ...) {
-  
+
   separate_into(skip_head(x, 6), fill = "right", c(
     "Link", "Type", "Maximum_Flow", "Time_of_Max_Occurance_d", 
     "Time_of_Max_Occurance_hm", "Maximum_Veloc", "Maximum_Full_Flow", 
